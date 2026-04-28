@@ -1,0 +1,21 @@
+minilang/
+│
+├── lexer/
+│   ├── afd.py          # estados e transições
+│   └── token.py        # função principal lexer(codigo)
+│
+├── parser/
+│   ├── pilha.py        # estrutura da pilha explícita
+│   └── analisador_sintatico.py       # função principal parser(tokens)
+│
+├── semantico/
+│   └── semantico.py    # função principal semantico(tokens)
+│
+├── gerador/
+│   └── gerador.py      # função principal gerar_codigo(tokens)
+│
+├── executor/
+│   └── executor.py     # função principal executar(codigo)
+│
+├── compilador.py       # integra todas as funções
+└── main.py             # entrada do usuário
