@@ -121,26 +121,74 @@ def semantico(tokens):
 
 
 if __name__ == "__main__":
-    while True:
-        codigo = input("Digite o código: ")
+    testes = [
+        {
+            "nome": "Teste 1 — Correto: variável usando outra já definida",
+            "codigos": [
+                "x = 5",
+                "y = x + 2",
+                "print(y)"
+            ]
+        },
+        {
+            "nome": "Teste 2 — Errado: variável w não foi definida",
+            "codigos": [
+                "x = 5",
+                "y = x + w",
+                "print(y)"
+            ]
+        },
+        {
+            "nome": "Teste 3 — Errado: print usando variável não definida",
+            "codigos": [
+                "print(w)"
+            ]
+        },
+        {
+            "nome": "Teste 4 — Correto: expressão com vários valores",
+            "codigos": [
+                "x =  3 + 2",
+                "y = 2 + x",
+                "z = x + y + 10",
+                "print(z)"
+            ]
+        },
+        {
+            "nome": "Teste 5 — Errado: variável z usada antes de existir",
+            "codigos": [
+                "x = 10",
+                "y = z + 1",
+                "print(y)"
+            ]
+        }
+    ]
 
-        try:
-            tokens = lexer(codigo)
+    for teste in testes:
+        print("\n========================================")
+        print(teste["nome"])
+        print("========================================")
 
-            print("\nTokens:")
-            for t in tokens:
-                print(t)
+        # Cada teste começa com a tabela de símbolos vazia
+        variaveis_definidas.clear()
 
-            analisar_sintatico(tokens)
+        for codigo in teste["codigos"]:
+            print(f"\nCódigo: {codigo}")
 
-            resultado = semantico(tokens)
-            print("Semântico:", "OK" if resultado else "Erro")
+            try:
+                tokens = lexer(codigo)
 
-            print("Variáveis definidas:", variaveis_definidas)
+                # Aqui o sintático ainda é chamado para garantir
+                # que a estrutura do código está correta,
+                # mas o foco da saída será apenas o semântico.
+                analisar_sintatico(tokens)
 
-        except Exception as e:
-            print(e)
+                semantico(tokens)
 
-        continuar = input("\nContinuar? (s/n): ").lower()
-        if continuar != "s":
-            break
+                print("Semântico: OK")
+                print("Variáveis definidas:", variaveis_definidas)
+
+            except Exception as e:
+                print("Semântico:", e)
+                print("Variáveis definidas:", variaveis_definidas)
+                print("Teste interrompido por erro.")
+                break

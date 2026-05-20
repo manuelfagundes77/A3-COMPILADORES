@@ -91,8 +91,6 @@ class Pilha:
         """
         Exibe no terminal todas as operações registradas no histórico.
         
-        Útil para demonstrar visualmente o funcionamento do PDA durante
-        a análise sintática na apresentação do trabalho.
         """
         print("\n=== HISTÓRICO DA PILHA (PDA) ===")
         for operacao in self.historico:
@@ -102,8 +100,5 @@ class Pilha:
     def limpar_historico(self):
         """
         Limpa o histórico de operações.
-        
-        Útil quando você quer analisar múltiplas linhas de código
-        e quer resetar o histórico entre uma análise e outra.
         """
         self.historico = []

@@ -1,32 +1,34 @@
 # ============================================================
-# ANALISADOR SINTÁTICO — Parser com PDA (Autômato de Pilha)
+# ANALISADOR SINTÁTICO — Parser da MiniLang
 #
 # Conceito:
 #   O analisador sintático verifica se a sequência de tokens
-#   obedece às regras gramaticais da linguagem MiniLang. Utiliza
-#   um PDA (Pushdown Automaton) — autômato com pilha — para
-#   processar a estrutura hierárquica do código.
+#   obedece às regras gramaticais da linguagem MiniLang.
 #
-#   Gramática da MiniLang:
-#     PROGRAM → STMT
-#     STMT    → ID = EXPR | print(ID)
-#     EXPR    → VALOR RESTO
-#     RESTO   → OP VALOR RESTO | ε (vazio)
-#     VALOR   → ID | NUM
-#     OP      → + | -
+#   Nesta versão:
+#     - A atribuição é validada por regras sintáticas diretas
+#     - O comando print é validado usando pilha (PDA)
 #
-#   A pilha guarda símbolos não-terminais (EXPR, STMT, etc.) e
-#   terminais (ID, =, etc.) que ainda precisam ser processados.
+#   Gramática simplificada da MiniLang:
 #
-# Exemplo para "x = 10":
-#   Pilha inicial: [ATRIB]
-#   Expande ATRIB → [ID, =, EXPR]
-#   Consome ID    → [=, EXPR]
-#   Consome =     → [EXPR]
-#   Expande EXPR  → [VALOR, RESTO]
-#   Consome NUM   → [RESTO]
-#   RESTO vazio   → []
-#   ✓ Aceito
+#     ATRIBUICAO → ID = EXPRESSAO
+#     EXPRESSAO  → VALOR (OP VALOR)*
+#     VALOR      → ID | NUM
+#     OP         → + | -
+#
+#     PRINT      → print ( ID )
+#
+#   Exemplos aceitos:
+#     x = 4
+#     x = 4 + 6
+#     x = y
+#     x = y + 6
+#     x = y + z + 5
+#     print(x)
+#
+#   Conceitos:
+#     - Gramática Livre de Contexto: regras da linguagem
+#     - PDA: usado na validação do print com pilha
 # ============================================================
 
 import sys
@@ -38,162 +40,179 @@ from parser.pilha import Pilha
 from lexer.analisador_lexico import lexer
 
 
-def analisar_sintatico(tokens):
+# ------------------------------------------------------------
+# DICIONÁRIO DE REGRAS SINTÁTICAS
+# ------------------------------------------------------------
+#  as regras principais da linguagem.
+#
+# A atribuição segue:
+#   ID = VALOR (OP VALOR)*
+#
+# Ou seja:
+#   começa com ID
+#   depois precisa ter =
+#   depois precisa ter um valor
+#   depois pode repetir operador + valor
+# ------------------------------------------------------------
+
+regras_sintaticas = {
+    "ATRIBUICAO": {
+        "inicio": ["ID", "="],
+        "valores": ["ID", "NUM"],
+        "operadores": ["+", "-"],
+        "formato": "ID = VALOR (OP VALOR)*"
+    },
+
+    "PRINT": {
+        "formato": ["PRINT", "(", "ID", ")"],
+        "usa_pilha": True
+    }
+}
+
+
+def eh_valor(token):
     """
-    Analisa a estrutura sintática dos tokens usando um PDA.
-    
-    Parâmetros:
-        tokens → lista de tuplas (tipo, valor) retornada pelo lexer
-    
-    Retorna:
-        True se a estrutura é válida, lança exceção se inválida
+    Verifica se o token é um valor válido para expressão.
+
+    VALOR pode ser:
+        ID  → variável
+        NUM → número
+    """
+    tipo, valor = token
+    return tipo in regras_sintaticas["ATRIBUICAO"]["valores"]
+
+
+def eh_operador_matematico(token):
+    """
+    Verifica se o token é operador matemático aceito.
+
+    Operadores aceitos:
+        +
+        -
+    """
+    tipo, valor = token
+
+    return (
+        tipo == "OP"
+        and valor in regras_sintaticas["ATRIBUICAO"]["operadores"]
+    )
+
+
+def validar_expressao(tokens_expressao):
+    """
+    Valida a expressão depois do sinal de igual.
+
+    Formato aceito:
+        VALOR
+        VALOR OP VALOR
+        VALOR OP VALOR OP VALOR ...
+
+    Exemplos válidos:
+        4
+        y
+        4 + 6
+        y + 6
+        y + z + 5
+
+    Exemplos inválidos:
+        + 4
+        y +
+        y + + 6
+    """
+    if len(tokens_expressao) == 0:
+        raise Exception("Erro sintático: expressão vazia após '='")
+
+    esperando_valor = True
+
+    for token in tokens_expressao:
+        if esperando_valor:
+            if eh_valor(token):
+                esperando_valor = False
+            else:
+                raise Exception("Erro sintático: esperado ID ou NUM na expressão")
+
+        else:
+            if eh_operador_matematico(token):
+                esperando_valor = True
+            else:
+                raise Exception("Erro sintático: esperado operador '+' ou '-'")
+
+    if esperando_valor:
+        raise Exception("Erro sintático: expressão não pode terminar com operador")
+
+
+def validar_atribuicao(tokens):
+    """
+    Valida uma atribuição.
+
+    Formato esperado:
+        ID = EXPRESSAO
+
+    Exemplos:
+        x = 4
+        x = 4 + 6
+        x = y
+        x = y + 6
+        x = y + z + 5
+    """
+    if len(tokens) < 3:
+        raise Exception("Erro sintático: atribuição incompleta")
+
+    if tokens[0][0] != "ID":
+        raise Exception("Erro sintático: atribuição deve começar com ID")
+
+    if tokens[1] != ("OP", "="):
+        raise Exception("Erro sintático: esperado '=' após o ID")
+
+    tokens_expressao = tokens[2:]
+
+    validar_expressao(tokens_expressao)
+
+
+def analisar_print_com_pilha(tokens):
+    """
+    Valida o comando print usando pilha.
+
+    Formato esperado:
+        print ( ID )
+
+    Exemplo:
+        print(x)
+
+    Aqui a pilha demonstra o funcionamento de um PDA.
     """
     pilha = Pilha()
-    i = 0  # índice do token atual sendo processado
+    i = 0
 
-    # Verifica se o código não está vazio
-    if len(tokens) == 0:
-        raise Exception("Erro sintático: código vazio")
+    pilha.empilhar("PRINT")
 
-    # -----------------------------------------------------------
-    # VALIDAÇÃO: Se o primeiro token é ID seguido de '(',
-    # só aceita se for o comando 'print'
-    # Exemplo: pint(x) → erro, abc(y) → erro
-    # -----------------------------------------------------------
-    if tokens[0][0] == "ID" and len(tokens) > 1 and tokens[1] == ("PAREN", "("):
-        raise Exception(f"Erro sintático: '{tokens[0][1]}' não é um comando válido. Apenas 'print' pode usar parênteses")
-
-    # Identifica o tipo de instrução pelo primeiro token
-    # e empilha o símbolo inicial correspondente
-    if tokens[0][0] == "ID":
-        pilha.empilhar("ATRIB")  # é uma atribuição: x = ...
-
-    elif tokens[0][0] == "PRINT":
-        pilha.empilhar("PRINT")  # é um print: print(...)
-
-    else:
-        raise Exception("Erro sintático: instrução inválida")
-
-    # Loop principal: processa a pilha até ela esvaziar
     while not pilha.vazia():
         topo = pilha.desempilhar()
 
-        # -----------------------------------------------------------
-        # Produção: ATRIB → ID = EXPR
-        # Quando encontra ATRIB na pilha, expande para os símbolos
-        # que compõem uma atribuição
-        # -----------------------------------------------------------
-        if topo == "ATRIB":
-            pilha.empilhar("EXPR")
-            pilha.empilhar("=")
-            pilha.empilhar("ID")
-
-        # -----------------------------------------------------------
-        # Produção: PRINT → print ( ID )
-        # Empilha os símbolos na ordem inversa (por ser pilha)
-        # -----------------------------------------------------------
-        elif topo == "PRINT":
+        if topo == "PRINT":
             pilha.empilhar(")")
             pilha.empilhar("ID")
             pilha.empilhar("(")
             pilha.empilhar("print")
 
-        # -----------------------------------------------------------
-        # Produção: EXPR → VALOR RESTO
-        # Uma expressão começa com um valor (ID ou NUM)
-        # -----------------------------------------------------------
-        elif topo == "EXPR":
-            if i < len(tokens) and tokens[i][0] in ("ID", "NUM"):
-                pilha.empilhar("RESTO")
-                pilha.empilhar("VALOR")
-            else:
-                raise Exception("Erro sintático: expressão inválida")
-
-        # -----------------------------------------------------------
-        # Produção: RESTO → OP VALOR | ε (vazio)
-        # Após um valor, pode vir um operador + outro valor, ou nada
-        # -----------------------------------------------------------
-        elif topo == "RESTO":
-            if i < len(tokens) and tokens[i][0] == "OP" and tokens[i][1] in ("+", "-"):
-                operador = tokens[i][1]
-                pilha.empilhar("VALOR")
-                pilha.empilhar(operador)
-            # Se não tem operador, RESTO é vazio (produção ε) — não faz nada
-
-        # -----------------------------------------------------------
-        # Terminal: VALOR → ID | NUM
-        # Consome um token ID ou NUM da entrada
-        # -----------------------------------------------------------
-        elif topo == "VALOR":
-            if i < len(tokens) and tokens[i][0] in ("ID", "NUM"):
-                i += 1
-            else:
-                raise Exception("Erro sintático: esperado ID ou NUM")
-
-        # -----------------------------------------------------------
-        # Terminal: ID
-        # Consome um token ID da entrada
-        # -----------------------------------------------------------
-        elif topo == "ID":
-            if i < len(tokens) and tokens[i][0] == "ID":
-                i += 1
-            else:
-                raise Exception("Erro sintático: esperado ID")
-
-        # -----------------------------------------------------------
-        # Terminal: =
-        # Consome o operador de atribuição
-        # -----------------------------------------------------------
-        elif topo == "=":
-            if i < len(tokens) and tokens[i] == ("OP", "="):
-                i += 1
-            else:
-                raise Exception("Erro sintático: esperado '='")
-
-        # -----------------------------------------------------------
-        # Terminal: +
-        # Consome o operador de adição
-        # -----------------------------------------------------------
-        elif topo == "+":
-            if i < len(tokens) and tokens[i] == ("OP", "+"):
-                i += 1
-            else:
-                raise Exception("Erro sintático: esperado '+'")
-
-        # -----------------------------------------------------------
-        # Terminal: -
-        # Consome o operador de subtração
-        # -----------------------------------------------------------
-        elif topo == "-":
-            if i < len(tokens) and tokens[i] == ("OP", "-"):
-                i += 1
-            else:
-                raise Exception("Erro sintático: esperado '-'")
-
-        # -----------------------------------------------------------
-        # Terminal: print
-        # Consome a palavra-chave print
-        # -----------------------------------------------------------
         elif topo == "print":
             if i < len(tokens) and tokens[i][0] == "PRINT":
                 i += 1
             else:
                 raise Exception("Erro sintático: esperado print")
 
-        # -----------------------------------------------------------
-        # Terminal: (
-        # Consome o parêntese de abertura
-        # -----------------------------------------------------------
         elif topo == "(":
             if i < len(tokens) and tokens[i] == ("PAREN", "("):
                 i += 1
             else:
                 raise Exception("Erro sintático: esperado '('")
 
-        # -----------------------------------------------------------
-        # Terminal: )
-        # Consome o parêntese de fechamento
-        # -----------------------------------------------------------
+        elif topo == "ID":
+            if i < len(tokens) and tokens[i][0] == "ID":
+                i += 1
+            else:
+                raise Exception("Erro sintático: esperado ID dentro do print")
+
         elif topo == ")":
             if i < len(tokens) and tokens[i] == ("PAREN", ")"):
                 i += 1
@@ -203,12 +222,33 @@ def analisar_sintatico(tokens):
         else:
             raise Exception(f"Símbolo desconhecido na pilha: {topo}")
 
-    # Verifica se todos os tokens foram consumidos
     if i != len(tokens):
-        raise Exception("Erro sintático: tokens extras")
+        raise Exception("Erro sintático: tokens extras após o print")
 
-    # Mostra o histórico de operações da pilha (demonstra o PDA)
     pilha.mostrar_historico()
+
+
+def analisar_sintatico(tokens):
+    """
+    Função principal da análise sintática.
+
+    Ela identifica se a instrução é:
+        - atribuição
+        - print
+
+    Depois chama a validação correta.
+    """
+    if len(tokens) == 0:
+        raise Exception("Erro sintático: código vazio")
+
+    if tokens[0][0] == "ID":
+        validar_atribuicao(tokens)
+
+    elif tokens[0][0] == "PRINT":
+        analisar_print_com_pilha(tokens)
+
+    else:
+        raise Exception("Erro sintático: instrução inválida")
 
     return True
 
