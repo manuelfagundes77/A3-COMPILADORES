@@ -39,8 +39,6 @@ def registrar_variavel(nome_variavel):
     """
     Registra uma variável na tabela de símbolos.
 
-    Parâmetros:
-        nome_variavel → nome da variável que será criada
     """
     variaveis_definidas.add(nome_variavel)
 
@@ -49,10 +47,6 @@ def verificar_variavel_definida(nome_variavel):
     """
     Verifica se uma variável já foi criada antes de ser usada.
 
-    Parâmetros:
-        nome_variavel → nome da variável que será verificada
-
-    Lança erro se a variável ainda não existir.
     """
     if nome_variavel not in variaveis_definidas:
         raise Exception(f"Erro semântico: variável '{nome_variavel}' não foi definida")
@@ -87,8 +81,6 @@ def verificar_print(tokens):
     Exemplo:
         print(x)
 
-    Regra:
-        - A variável usada dentro do print precisa existir antes.
     """
     for tipo, valor in tokens:
         if tipo == "ID":
@@ -98,9 +90,6 @@ def verificar_print(tokens):
 def semantico(tokens):
     """
     Função principal da análise semântica.
-
-    Parâmetros:
-        tokens → lista de tokens retornada pelo analisador léxico
 
     Retorna:
         True se a análise semântica estiver correta.
