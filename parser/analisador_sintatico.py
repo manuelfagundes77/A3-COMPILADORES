@@ -254,22 +254,37 @@ def analisar_sintatico(tokens):
 
 
 if __name__ == "__main__":
-    while True:
-        codigo = input("Digite o código: ")
-
+    testes = [
+        {
+            "nome": "Teste 1 — Correto: atribuição simples",
+            "codigo": "x = 10"
+        },
+        {
+            "nome": "Teste 6 — Errado: expressão termina com operador",
+            "codigo": "x = 10 +"
+        },
+        {
+            "nome": "Teste 7 — Errado: comando inválido com parêntese",
+            "codigo": "pint(x)"
+        },
+    ]
+ 
+    print("=== ANALISADOR SINTÁTICO (PDA) ===\n")
+ 
+    for teste in testes:
+        print("========================================")
+        print(teste["nome"])
+        print("========================================")
+        print(f"Código: {teste['codigo']}")
+ 
         try:
-            tokens = lexer(codigo)
-
-            print("\nTokens:")
-            for t in tokens:
-                print(t)
-
-            resultado = analisar_sintatico(tokens)
-            print("\nSintático:", "OK" if resultado else "Erro")
-
+            tokens = lexer(teste["codigo"])
+            print(f"Tokens: {tokens}")
+            analisar_sintatico(tokens)
+            print("Sintático: OK")
+ 
         except Exception as e:
-            print(e)
-
-        continuar = input("\nContinuar? (s/n): ").lower()
-        if continuar != "s":
-            break
+            print(f"Sintático: {e}")
+ 
+        print()
+ 

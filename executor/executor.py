@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
     variaveis_definidas.clear()
 
-    print("=== EXECUTOR DA MINILANG ===\n")
+    print("=== EXECUTOR === \n")
 
     print("Código fonte:")
     for linha in programa_teste:

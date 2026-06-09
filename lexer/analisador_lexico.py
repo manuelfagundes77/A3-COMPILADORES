@@ -74,19 +74,37 @@ def lexer(codigo):
 
 
 if __name__ == "__main__":
-    while True:
-        codigo = input("Digite o código: ")
-
+    testes = [
+        {
+            "nome": "Teste 1 — Correto: atribuição simples",
+            "codigo": "x = 10"
+        },
+        {
+            "nome": "Teste 6 — Errado: caractere inválido",
+            "codigo": "x = 10@"
+        },
+        {
+            "nome": "Teste 7 — Errado: número seguido de letra",
+            "codigo": "x = 10x"
+        },
+    ]
+ 
+    print("=== ANALISADOR LÉXICO (AFD) ===\n")
+ 
+    for teste in testes:
+        print("========================================")
+        print(teste["nome"])
+        print("========================================")
+        print(f"Código: {teste['codigo']}")
+ 
         try:
-            tokens = lexer(codigo)
-
-            print("\nTokens:")
+            tokens = lexer(teste["codigo"])
+            print("Tokens:")
             for t in tokens:
-                print(t)
-
+                print(f"  {t}")
+            print("Léxico: OK")
+ 
         except Exception as e:
-            print(e)
-
-        continuar = input("\nContinuar? (s/n): ").lower()
-        if continuar != "s":
-            break
+            print(f"Léxico: {e}")
+ 
+        print()
